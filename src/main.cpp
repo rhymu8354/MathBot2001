@@ -31,7 +31,7 @@ namespace {
         fprintf(
             stderr,
             (
-                "Usage: MathBot2001\n"
+                "Usage: MathBot2001 TOKEN\n"
                 "\n"
                 "Connect to Twitch chat and listen for messages.\n"
                 "\n"
