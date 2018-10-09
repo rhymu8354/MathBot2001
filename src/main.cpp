@@ -68,9 +68,20 @@ namespace {
         // Properties
 
         /**
+         * This is the OAuth token to use in authenticating with Twitch.
+         */
+        std::string token;
+
+        /**
          * This is used to report information to the bot's operator.
          */
         SystemAbstractions::DiagnosticsSender::DiagnosticMessageDelegate diagnosticMessageDelegate;
+
+        /**
+         * This is used to connect to Twitch chat and exchange messages
+         * with it.
+         */
+        Twitch::Messaging tmi;
 
         /**
          * This is used to synchronize access to the object.
@@ -90,6 +101,81 @@ namespace {
         bool loggedOut = false;
 
         // Methods
+
+        /**
+         * This method sets up the bot to interact with the app and with
+         * Twitch chat.
+         *
+         * @param[in] diagnosticMessageDelegate
+         *     This is the function to call to publish any diagnostic messages.
+         */
+        void Configure(
+            SystemAbstractions::DiagnosticsSender::DiagnosticMessageDelegate diagnosticMessageDelegate
+        ) {
+            this->token = token;
+            tmi.SubscribeToDiagnostics(diagnosticMessageDelegate, 0);
+            tmi.SetConnectionFactory(
+                [diagnosticMessageDelegate]() -> std::shared_ptr< Twitch::Connection > {
+                    auto connection = std::make_shared< TwitchNetworkTransport::Connection >();
+                    connection->SubscribeToDiagnostics(diagnosticMessageDelegate, 0);
+                    SystemAbstractions::File caCertsFile(
+                        SystemAbstractions::File::GetExeParentDirectory()
+                        + "/cert.pem"
+                    );
+                    if (!caCertsFile.Open()) {
+                        diagnosticMessageDelegate(
+                            "MathBot2001",
+                            SystemAbstractions::DiagnosticsSender::Levels::ERROR,
+                            SystemAbstractions::sprintf(
+                                "unable to open root CA certificates file '%s'",
+                                caCertsFile.GetPath().c_str()
+                            )
+                        );
+                        return nullptr;
+                    }
+                    std::vector< uint8_t > caCertsBuffer(caCertsFile.GetSize());
+                    if (caCertsFile.Read(caCertsBuffer) != caCertsBuffer.size()) {
+                        diagnosticMessageDelegate(
+                            "MathBot2001",
+                            SystemAbstractions::DiagnosticsSender::Levels::ERROR,
+                            "unable to read root CA certificates file"
+                        );
+                        return nullptr;
+                    }
+                    const std::string caCerts(
+                        (const char*)caCertsBuffer.data(),
+                        caCertsBuffer.size()
+                    );
+                    connection->SetCaCerts(caCerts);
+                    return connection;
+                }
+            );
+            const auto timeKeeper = std::make_shared< TimeKeeper >();
+            tmi.SetTimeKeeper(std::make_shared< TimeKeeper >());
+            tmi.SetUser(
+                std::shared_ptr< Twitch::Messaging::User >(
+                    this,
+                    [](Twitch::Messaging::User*){}
+                )
+            );
+        }
+
+        /**
+         * This method is called to initiate logging into Twitch chat.
+         *
+         * @param[in] token
+         *     This is the OAuth token to use in authenticating with Twitch.
+         */
+        void InitiateLogIn(const std::string& token) {
+            tmi.LogIn("MathBot2001", token);
+        }
+
+        /**
+         * This method is called to initiate logging out of Twitch chat.
+         */
+        void InitiateLogOut() {
+            tmi.LogOut("Bye! BibleThump");
+        }
 
         /**
          * This method waits up to a quarter second for the bot to be
@@ -116,6 +202,7 @@ namespace {
                 1,
                 "Logged in."
             );
+            tmi.Join("rhymu8354");
         }
 
         virtual void LogOut() {
@@ -232,71 +319,6 @@ namespace {
         return true;
     }
 
-    /**
-     * This function configures the Twitch messaging object.
-     *
-     * @param[in,out] tmi
-     *     This is the messaging object to configure.
-     *
-     * @param[in] environment
-     *     This contains variables set through the operating system
-     *     environment or the command-line arguments.
-     *
-     * @param[in] user
-     *     This is the object which will receive any callbacks from the
-     *     Twitch messaging object, for such things as chat messages received.
-     *
-     * @param[in] diagnosticMessageDelegate
-     *     This is the function to call to publish any diagnostic messages.
-     */
-    void ConfigureMessaging(
-        Twitch::Messaging& tmi,
-        const Environment& environment,
-        std::shared_ptr< Twitch::Messaging::User > user,
-        SystemAbstractions::DiagnosticsSender::DiagnosticMessageDelegate diagnosticMessageDelegate
-    ) {
-        tmi.SubscribeToDiagnostics(diagnosticMessageDelegate, 0);
-        tmi.SetConnectionFactory(
-            [diagnosticMessageDelegate]() -> std::shared_ptr< Twitch::Connection > {
-                auto connection = std::make_shared< TwitchNetworkTransport::Connection >();
-                connection->SubscribeToDiagnostics(diagnosticMessageDelegate, 0);
-                SystemAbstractions::File caCertsFile(
-                    SystemAbstractions::File::GetExeParentDirectory()
-                    + "/cert.pem"
-                );
-                if (!caCertsFile.Open()) {
-                    diagnosticMessageDelegate(
-                        "MathBot2001",
-                        SystemAbstractions::DiagnosticsSender::Levels::ERROR,
-                        SystemAbstractions::sprintf(
-                            "unable to open root CA certificates file '%s'",
-                            caCertsFile.GetPath().c_str()
-                        )
-                    );
-                    return nullptr;
-                }
-                std::vector< uint8_t > caCertsBuffer(caCertsFile.GetSize());
-                if (caCertsFile.Read(caCertsBuffer) != caCertsBuffer.size()) {
-                    diagnosticMessageDelegate(
-                        "MathBot2001",
-                        SystemAbstractions::DiagnosticsSender::Levels::ERROR,
-                        "unable to read root CA certificates file"
-                    );
-                    return nullptr;
-                }
-                const std::string caCerts(
-                    (const char*)caCertsBuffer.data(),
-                    caCertsBuffer.size()
-                );
-                connection->SetCaCerts(caCerts);
-                return connection;
-            }
-        );
-        const auto timeKeeper = std::make_shared< TimeKeeper >();
-        tmi.SetTimeKeeper(std::make_shared< TimeKeeper >());
-        tmi.SetUser(user);
-    }
-
 }
 
 /**
@@ -326,14 +348,11 @@ int main(int argc, char* argv[]) {
         PrintUsageInformation();
         return EXIT_FAILURE;
     }
-    Twitch::Messaging tmi;
     const auto bot = std::make_shared< MathBot2001 >();
     bot->diagnosticMessageDelegate = diagnosticsPublisher;
-    // TODO: do this when TMI becomes a diagnostics publisher...
-    // const auto diagnosticsSubscription = tmi.SubscribeToDiagnostics(diagnosticsPublisher);
-    ConfigureMessaging(tmi, environment, bot, diagnosticsPublisher);
+    bot->Configure(diagnosticsPublisher);
     diagnosticsPublisher("MathBot2001", 3, "Configured.");
-    tmi.LogIn("MathBot2001", environment.token);
+    bot->InitiateLogIn(environment.token);
     while (!shutDown) {
         if (bot->AwaitLogOut()) {
             break;
@@ -341,7 +360,7 @@ int main(int argc, char* argv[]) {
     }
     (void)signal(SIGINT, previousInterruptHandler);
     diagnosticsPublisher("MathBot2001", 3, "Exiting...");
-    tmi.LogOut("Bye! BibleThump");
+    bot->InitiateLogOut();
     bot->AwaitLogOut();
     return EXIT_SUCCESS;
 }
