@@ -9,8 +9,9 @@
  * © 2018 by Richard Walters
  */
 
-#include <Twitch/Messaging.hpp>
 #include <memory>
+#include <string>
+#include <SystemAbstractions/DiagnosticsSender.hpp>
 
 /**
  * This represents the chat bot itself.  It handles any callbacks
