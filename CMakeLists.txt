@@ -7,6 +7,8 @@ set(This MathBot2001)
 
 set(Sources
     src/main.cpp
+    src/MathBot2001.cpp
+    src/MathBot2001.hpp
     src/TimeKeeper.cpp
     src/TimeKeeper.hpp
 )
