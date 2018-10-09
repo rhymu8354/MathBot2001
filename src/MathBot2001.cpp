@@ -99,6 +99,12 @@ struct MathBot2001::Impl
     virtual void Message(
         Twitch::Messaging::MessageInfo&& messageInfo
     ) override {
+        diagnosticsSender.SendDiagnosticInformationFormatted(
+            1, "%s said in channel \"%s\", \"%s\"",
+            messageInfo.user.c_str(),
+            messageInfo.channel.c_str(),
+            messageInfo.message.c_str()
+        );
     }
 
 };
