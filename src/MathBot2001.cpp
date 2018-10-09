@@ -13,6 +13,8 @@
 #include <map>
 #include <mutex>
 #include <random>
+#include <set>
+#include <sstream>
 #include <string>
 #include <SystemAbstractions/DiagnosticsSender.hpp>
 #include <SystemAbstractions/File.hpp>
@@ -55,6 +57,11 @@ namespace {
          * This is the user's current score.
          */
         int points = 0;
+
+        /**
+         * This is the number of points gained or lost this round.
+         */
+        int pointDelta = 0;
     };
 
 }
@@ -130,9 +137,16 @@ struct MathBot2001::Impl
 
     /**
      * This indicates whether or not a user has sent a tell
-     * with the correct answer to the current math question.
+     * with the correct answer to the current math question,
+     * or if the round has finished before anyone could answer
+     * the question correctly.
      */
-    bool answeredCorrectly = true;
+    bool roundComplete = true;
+
+    /**
+     * This indicates whether or not the current round has been scored.
+     */
+    bool roundScored = true;
 
     /**
      * This is the time (according to the time keeper) when
@@ -141,16 +155,28 @@ struct MathBot2001::Impl
     double nextQuestionTime = std::numeric_limits< double >::max();
 
     /**
+     * This is the time (according to the time keeper) when
+     * the current math question should be scored.
+     */
+    double currentScoringTime = std::numeric_limits< double >::max();
+
+    /**
      * This is the minimum cooldown time in seconds between
      * when two consecutive questions are asked.
      */
-    double minQuestionCooldown = 10.0;
+    double minQuestionCooldown = 30.0;
 
     /**
      * This is the maximum cooldown time in seconds between
      * when two consecutive questions are asked.
      */
-    double maxQuestionCooldown = 30.0;
+    double maxQuestionCooldown = 120.0;
+
+    /**
+     * This is the amount of time a question/answer round will go
+     * until the scoring is done.
+     */
+    double roundTime = 7.5;
 
     /**
      * This is the correct answer to the current math question.
@@ -161,6 +187,17 @@ struct MathBot2001::Impl
      * These are the users who are currently interacting with the bot.
      */
     std::map< std::string, Contestant > contestants;
+
+    /**
+     * These are the nicknames of the users who participated in answering
+     * the last question.
+     */
+    std::set< std::string > nicknamesOfParticipantsThisRound;
+
+    /**
+     * This is the nickname of the user who won the last round.
+     */
+    std::string winnerThisRound;
 
     // Methods
 
@@ -173,9 +210,11 @@ struct MathBot2001::Impl
     }
 
     /**
-     * This method sets the time the next math question will be asked.
+     * This method updates the times of when the current question
+     * will be scored, and the next question asked.
      */
-    void CooldownNextQuestion() {
+    void UpdateRoundTimes() {
+        currentScoringTime = nextQuestionTime + roundTime;
         nextQuestionTime += std::uniform_real_distribution<>(
             minQuestionCooldown,
             maxQuestionCooldown
@@ -211,6 +250,71 @@ struct MathBot2001::Impl
     }
 
     /**
+     * This method clears any information about the last round,
+     * and starts a new question/answer round.
+     *
+     * @return
+     *     The next question is returned.
+     */
+    std::string StartNewRound() {
+        const auto lastAnswer = answer;
+        nicknamesOfParticipantsThisRound.clear();
+        winnerThisRound.clear();
+        std::string question;
+        do {
+            std::vector< int > questionComponents(3);
+            questionComponents[0] = std::uniform_int_distribution<>(2, 10)(generator);
+            questionComponents[1] = std::uniform_int_distribution<>(2, 10)(generator);
+            questionComponents[2] = std::uniform_int_distribution<>(2, 97)(generator);
+            question = SystemAbstractions::sprintf(
+                "What is %d * %d + %d?",
+                questionComponents[0],
+                questionComponents[1],
+                questionComponents[2]
+            );
+            answer = SystemAbstractions::sprintf(
+                "%d",
+                questionComponents[0] * questionComponents[1] + questionComponents[2]
+            );
+        } while (answer == lastAnswer);
+        roundScored = false;
+        roundComplete = false;
+        UpdateRoundTimes();
+        return question;
+    }
+
+    /**
+     * This method updates the scores of all users who participated
+     * this round, and returns a string which describes who lost,
+     * which is intended to be included in the results
+     * message sent to the channel.
+     *
+     * @return
+     *     A string which describes who lost,
+     *     which is intended to be included in the results
+     *     message sent to the channel, is returned.
+     */
+    std::string ApplyScoresAndGetLosers() {
+        std::ostringstream buffer;
+        bool firstLoser = true;
+        for (const auto& nickname: nicknamesOfParticipantsThisRound) {
+            contestants[nickname].points += contestants[nickname].pointDelta;
+            if (nickname != winnerThisRound) {
+                if (firstLoser) {
+                    firstLoser = false;
+                } else {
+                    buffer << ", ";
+                }
+                buffer
+                    << nickname << " ("
+                    << contestants[nickname].pointDelta << " -> "
+                    << contestants[nickname].points << ")";
+            }
+        }
+        return buffer.str();
+    }
+
+    /**
      * This function is called in a separate thread to have the bot
      * take action at certain points in time.
      */
@@ -224,29 +328,38 @@ struct MathBot2001::Impl
             );
             const auto now = timeKeeper->GetCurrentTime();
             if (now >= nextQuestionTime) {
-                const auto lastAnswer = answer;
-                std::string question;
-                do {
-                    std::vector< int > questionComponents(3);
-                    questionComponents[0] = std::uniform_int_distribution<>(2, 10)(generator);
-                    questionComponents[1] = std::uniform_int_distribution<>(2, 10)(generator);
-                    questionComponents[2] = std::uniform_int_distribution<>(2, 97)(generator);
-                    question = SystemAbstractions::sprintf(
-                        "What is %d * %d + %d?",
-                        questionComponents[0],
-                        questionComponents[1],
-                        questionComponents[2]
-                    );
-                    answer = SystemAbstractions::sprintf(
-                        "%d",
-                        questionComponents[0] * questionComponents[1] + questionComponents[2]
-                    );
-                } while (answer == lastAnswer);
-                answeredCorrectly = false;
-                CooldownNextQuestion();
+                const auto question = StartNewRound();
                 lock.unlock();
                 tmi.SendMessage(TWITCH_CHANNEL, question);
                 lock.lock();
+            } else if (
+                (now >= currentScoringTime)
+                && !roundScored
+            ) {
+                roundComplete = true;
+                roundScored = true;
+                const auto losersList = ApplyScoresAndGetLosers();
+                std::ostringstream buffer;
+                if (winnerThisRound.empty()) {
+                    buffer << "No winners this round";
+                    if (!losersList.empty()) {
+                        buffer << ", only losers BibleThump " << losersList;
+                    }
+                } else {
+                    buffer
+                        << "Congratulations, " << winnerThisRound << "! (now at "
+                        << contestants[winnerThisRound].points << " point"
+                        << ((contestants[winnerThisRound].points == 1) ? "" : "s")
+                        << ")";
+                    if (!losersList.empty()) {
+                        buffer << " FeelsBadMan " << losersList;
+                    }
+                }
+                buffer << ".";
+                tmi.SendMessage(
+                    TWITCH_CHANNEL,
+                    buffer.str()
+                );
             }
         }
     }
@@ -278,32 +391,22 @@ struct MathBot2001::Impl
         ) {
             return;
         }
-        auto& userEntry = contestants[userNickname];
-        userEntry.nickname = userNickname;
-        if (answeredCorrectly) {
+        if (roundComplete) {
             return;
         }
+        auto& userEntry = contestants[userNickname];
+        if (nicknamesOfParticipantsThisRound.insert(userNickname).second) {
+            userEntry.pointDelta = 0;
+        }
+        userEntry.nickname = userNickname;
         if (tell == answer) {
-            answeredCorrectly = true;
-            ++userEntry.points;
-            tmi.SendMessage(
-                TWITCH_CHANNEL,
-                SystemAbstractions::sprintf(
-                    "Congratulations, %s!  That's the correct answer.  You now have %d points.",
-                    userEntry.nickname.c_str(),
-                    userEntry.points
-                )
-            );
+            diagnosticsSender.SendDiagnosticInformationString(1, "Winner: " + userNickname);
+            winnerThisRound = userNickname;
+            roundComplete = true;
+            ++userEntry.pointDelta;
         } else {
-            --userEntry.points;
-            tmi.SendMessage(
-                TWITCH_CHANNEL,
-                SystemAbstractions::sprintf(
-                    "Sorry, %s, that isn't the correct answer.  You now have %d points.",
-                    userEntry.nickname.c_str(),
-                    userEntry.points
-                )
-            );
+            diagnosticsSender.SendDiagnosticInformationString(1, "Loser: " + userNickname);
+            --userEntry.pointDelta;
         }
     }
 
