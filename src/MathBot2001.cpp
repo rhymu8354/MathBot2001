@@ -164,19 +164,19 @@ struct MathBot2001::Impl
      * This is the minimum cooldown time in seconds between
      * when two consecutive questions are asked.
      */
-    double minQuestionCooldown = 30.0;
+    double minQuestionCooldown = 45.0;
 
     /**
      * This is the maximum cooldown time in seconds between
      * when two consecutive questions are asked.
      */
-    double maxQuestionCooldown = 120.0;
+    double maxQuestionCooldown = 180.0;
 
     /**
      * This is the amount of time a question/answer round will go
      * until the scoring is done.
      */
-    double roundTime = 7.5;
+    double roundTime = 15.0;
 
     /**
      * This is the correct answer to the current math question.
