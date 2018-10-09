@@ -68,14 +68,15 @@ namespace {
         // Properties
 
         /**
+         * This is a helper object used to generate and publish
+         * diagnostic messages.
+         */
+        SystemAbstractions::DiagnosticsSender diagnosticsSender;
+
+        /**
          * This is the OAuth token to use in authenticating with Twitch.
          */
         std::string token;
-
-        /**
-         * This is used to report information to the bot's operator.
-         */
-        SystemAbstractions::DiagnosticsSender::DiagnosticMessageDelegate diagnosticMessageDelegate;
 
         /**
          * This is used to connect to Twitch chat and exchange messages
@@ -103,6 +104,14 @@ namespace {
         // Methods
 
         /**
+         * This is the default constructor.
+         */
+        MathBot2001()
+            : diagnosticsSender("MathBot2001")
+        {
+        }
+
+        /**
          * This method sets up the bot to interact with the app and with
          * Twitch chat.
          *
@@ -113,7 +122,8 @@ namespace {
             SystemAbstractions::DiagnosticsSender::DiagnosticMessageDelegate diagnosticMessageDelegate
         ) {
             this->token = token;
-            tmi.SubscribeToDiagnostics(diagnosticMessageDelegate, 0);
+            diagnosticsSender.SubscribeToDiagnostics(diagnosticMessageDelegate, 0);
+            tmi.SubscribeToDiagnostics(diagnosticsSender.Chain(), 0);
             tmi.SetConnectionFactory(
                 [diagnosticMessageDelegate]() -> std::shared_ptr< Twitch::Connection > {
                     auto connection = std::make_shared< TwitchNetworkTransport::Connection >();
@@ -158,6 +168,7 @@ namespace {
                     [](Twitch::Messaging::User*){}
                 )
             );
+            diagnosticsSender.SendDiagnosticInformationString(3, "Configured.");
         }
 
         /**
@@ -174,6 +185,7 @@ namespace {
          * This method is called to initiate logging out of Twitch chat.
          */
         void InitiateLogOut() {
+            diagnosticsSender.SendDiagnosticInformationString(3, "Exiting...");
             tmi.LogOut("Bye! BibleThump");
         }
 
@@ -197,11 +209,7 @@ namespace {
         // Twitch::Messaging::User
 
         virtual void LogIn() {
-            diagnosticMessageDelegate(
-                "MathBot2001",
-                1,
-                "Logged in."
-            );
+            diagnosticsSender.SendDiagnosticInformationString(1, "Logged in.");
             tmi.Join("rhymu8354");
         }
 
@@ -209,14 +217,19 @@ namespace {
             if (loggedOut) {
                 return;
             }
-            diagnosticMessageDelegate(
-                "MathBot2001",
-                1,
-                "Logged out."
-            );
+            diagnosticsSender.SendDiagnosticInformationString(1, "Logged out.");
             std::lock_guard< decltype(mutex) > lock(mutex);
             loggedOut = true;
             mainThreadEvent.notify_one();
+        }
+
+        virtual void Join(
+            const std::string& channel,
+            const std::string& user
+        ) {
+            if (user == "mathbot2001") {
+                tmi.SendMessage(channel, "Hello, I'm a bot!");
+            }
         }
 
         virtual void Message(
@@ -349,9 +362,7 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
     const auto bot = std::make_shared< MathBot2001 >();
-    bot->diagnosticMessageDelegate = diagnosticsPublisher;
     bot->Configure(diagnosticsPublisher);
-    diagnosticsPublisher("MathBot2001", 3, "Configured.");
     bot->InitiateLogIn(environment.token);
     while (!shutDown) {
         if (bot->AwaitLogOut()) {
@@ -359,7 +370,6 @@ int main(int argc, char* argv[]) {
         }
     }
     (void)signal(SIGINT, previousInterruptHandler);
-    diagnosticsPublisher("MathBot2001", 3, "Exiting...");
     bot->InitiateLogOut();
     bot->AwaitLogOut();
     return EXIT_SUCCESS;
