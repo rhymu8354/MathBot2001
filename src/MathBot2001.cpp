@@ -19,6 +19,7 @@
 #include <SystemAbstractions/DiagnosticsSender.hpp>
 #include <SystemAbstractions/File.hpp>
 #include <SystemAbstractions/StringExtensions.hpp>
+#include <thread>
 #include <Twitch/Messaging.hpp>
 #include <TwitchNetworkTransport/Connection.hpp>
 
@@ -440,7 +441,7 @@ struct MathBot2001::Impl
     virtual void Leave(
         const std::string& channel,
         const std::string& user
-    ) {
+    ) override {
         if (user == SystemAbstractions::ToLower(BOT_NICKNAME)) {
             StopWorker();
         }

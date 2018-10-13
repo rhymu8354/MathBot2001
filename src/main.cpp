@@ -131,7 +131,7 @@ namespace {
                     tokenFile.GetPath().c_str()
                 )
             );
-            return nullptr;
+            return false;
         }
         std::vector< uint8_t > tokenBuffer(tokenFile.GetSize());
         if (tokenFile.Read(tokenBuffer) != tokenBuffer.size()) {
@@ -140,7 +140,7 @@ namespace {
                 SystemAbstractions::DiagnosticsSender::Levels::ERROR,
                 "unable to read token file"
             );
-            return nullptr;
+            return false;
         }
         environment.token.assign(
             (const char*)tokenBuffer.data(),
