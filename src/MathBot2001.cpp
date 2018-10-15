@@ -430,19 +430,17 @@ struct MathBot2001::Impl
     }
 
     virtual void Join(
-        const std::string& channel,
-        const std::string& user
+        Twitch::Messaging::MembershipInfo&& membershipInfo
     ) override {
-        if (user == SystemAbstractions::ToLower(BOT_NICKNAME)) {
+        if (membershipInfo.user == SystemAbstractions::ToLower(BOT_NICKNAME)) {
             StartWorker();
         }
     }
 
     virtual void Leave(
-        const std::string& channel,
-        const std::string& user
+        Twitch::Messaging::MembershipInfo&& membershipInfo
     ) override {
-        if (user == SystemAbstractions::ToLower(BOT_NICKNAME)) {
+        if (membershipInfo.user == SystemAbstractions::ToLower(BOT_NICKNAME)) {
             StopWorker();
         }
     }
