@@ -450,12 +450,12 @@ struct MathBot2001::Impl
     ) override {
         diagnosticsSender.SendDiagnosticInformationFormatted(
             1, "%s said in channel \"%s\", \"%s\"",
-            messageInfo.userName.c_str(),
-            messageInfo.channelName.c_str(),
+            messageInfo.user.c_str(),
+            messageInfo.channel.c_str(),
             messageInfo.messageContent.c_str()
         );
         IfMessageIsAnswerThenHandleIt(
-            messageInfo.userName,
+            messageInfo.user,
             messageInfo.messageContent
         );
     }
