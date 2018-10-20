@@ -37,15 +37,6 @@ namespace {
     const std::string BOT_NICKNAME = "MathBot2001";
 
     /**
-     * This is the Twitch channel to join in chat.
-     *
-     * @note
-     *     You'll need to set this to some valid channel in order for
-     *     this bot to work.
-     */
-    const std::string TWITCH_CHANNEL = "";
-
-    /**
      * This represents one user who is interacting with the bot.
      */
     struct Contestant {
@@ -82,9 +73,9 @@ struct MathBot2001::Impl
     SystemAbstractions::DiagnosticsSender diagnosticsSender;
 
     /**
-     * This is the OAuth token to use in authenticating with Twitch.
+     * This is the name of the channel to join in Twitch.
      */
-    std::string token;
+    std::string channel;
 
     /**
      * This is used to connect to Twitch chat and exchange messages
@@ -331,7 +322,7 @@ struct MathBot2001::Impl
             if (now >= nextQuestionTime) {
                 const auto question = StartNewRound();
                 lock.unlock();
-                tmi.SendMessage(TWITCH_CHANNEL, question);
+                tmi.SendMessage(channel, question);
                 lock.lock();
             } else if (
                 (now >= currentScoringTime)
@@ -358,7 +349,7 @@ struct MathBot2001::Impl
                 }
                 buffer << ".";
                 tmi.SendMessage(
-                    TWITCH_CHANNEL,
+                    channel,
                     buffer.str()
                 );
             }
@@ -415,7 +406,7 @@ struct MathBot2001::Impl
 
     virtual void LogIn() override {
         diagnosticsSender.SendDiagnosticInformationString(1, "Logged in.");
-        tmi.Join(TWITCH_CHANNEL);
+        tmi.Join(channel);
     }
 
     virtual void LogOut() override {
@@ -520,7 +511,11 @@ void MathBot2001::Configure(
     impl_->diagnosticsSender.SendDiagnosticInformationString(3, "Configured.");
 }
 
-void MathBot2001::InitiateLogIn(const std::string& token) {
+void MathBot2001::InitiateLogIn(
+    const std::string& token,
+    const std::string& channel
+) {
+    impl_->channel = channel;
     impl_->tmi.LogIn(BOT_NICKNAME, token);
 }
 

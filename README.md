@@ -4,11 +4,12 @@ This is a stand-alone program which operates as a bot in Twitch chat.  It create
 
 ## Usage
 
-    Usage: MathBot2001 TOKEN
+    Usage: MathBot2001 TOKEN CHANNEL
 
     Connect to Twitch chat and listen for messages.
 
       TOKEN   Path/name of file containing the OAuth token to use
+      CHANNEL Name of the Twitch channel to join
 
 MathBot2001 connects to Twitch chat, joins a specific channel, and reports any chat messages posted to the channel.
 

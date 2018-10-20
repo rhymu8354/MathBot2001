@@ -49,8 +49,14 @@ public:
      *
      * @param[in] token
      *     This is the OAuth token to use in authenticating with Twitch.
+     *
+     * @param[in] channel
+     *     This is the channel in which to participate in chat.
      */
-    void InitiateLogIn(const std::string& token);
+    void InitiateLogIn(
+        const std::string& token,
+        const std::string& channel
+    );
 
     /**
      * This method is called to initiate logging out of Twitch chat.

@@ -31,11 +31,12 @@ namespace {
         fprintf(
             stderr,
             (
-                "Usage: MathBot2001 TOKEN\n"
+                "Usage: MathBot2001 TOKEN CHANNEL\n"
                 "\n"
                 "Connect to Twitch chat and listen for messages.\n"
                 "\n"
                 "  TOKEN   Path/name of file containing the OAuth token to use\n"
+                "  CHANNEL Name of the Twitch channel to join\n"
             )
         );
     }
@@ -54,6 +55,11 @@ namespace {
          * This is the OAuth token to use in authenticating with Twitch.
          */
         std::string token;
+
+        /**
+         * This is the name of the channel to join in Twitch.
+         */
+        std::string channel;
     };
 
     /**
@@ -94,30 +100,41 @@ namespace {
         Environment& environment,
         SystemAbstractions::DiagnosticsSender::DiagnosticMessageDelegate diagnosticMessageDelegate
     ) {
+        enum class State {
+            Token,
+            Channel,
+            Done,
+        } state = State::Token;
         std::string tokenFilePath;
-        size_t state = 0;
         for (int i = 1; i < argc; ++i) {
             const std::string arg(argv[i]);
             switch (state) {
-                case 0: { // next argument
-                    if (!tokenFilePath.empty()) {
-                        diagnosticMessageDelegate(
-                            "MathBot2001",
-                            SystemAbstractions::DiagnosticsSender::Levels::ERROR,
-                            "multiple token path names given"
-                        );
-                        return false;
-                    }
+                case State::Token: {
                     tokenFilePath = arg;
-                    state = 0;
+                    state = State::Channel;
+                } break;
+
+                case State::Channel: {
+                    environment.channel = arg;
+                    state = State::Done;
+                } break;
+
+                default: {
                 } break;
             }
         }
-        if (tokenFilePath.empty()) {
+        if (state == State::Token) {
             diagnosticMessageDelegate(
                 "MathBot2001",
                 SystemAbstractions::DiagnosticsSender::Levels::ERROR,
                 "no token path name given"
+            );
+            return false;
+        } else if (state == State::Channel) {
+            diagnosticMessageDelegate(
+                "MathBot2001",
+                SystemAbstractions::DiagnosticsSender::Levels::ERROR,
+                "no channel name given"
             );
             return false;
         }
@@ -180,7 +197,7 @@ int main(int argc, char* argv[]) {
     }
     const auto bot = std::make_shared< MathBot2001 >();
     bot->Configure(diagnosticsPublisher);
-    bot->InitiateLogIn(environment.token);
+    bot->InitiateLogIn(environment.token, environment.channel);
     while (!shutDown) {
         if (bot->AwaitLogOut()) {
             break;
