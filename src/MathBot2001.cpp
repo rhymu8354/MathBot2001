@@ -16,9 +16,9 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <StringExtensions/StringExtensions.hpp>
 #include <SystemAbstractions/DiagnosticsSender.hpp>
 #include <SystemAbstractions/File.hpp>
-#include <SystemAbstractions/StringExtensions.hpp>
 #include <thread>
 #include <Twitch/Messaging.hpp>
 #include <TwitchNetworkTransport/Connection.hpp>
@@ -258,13 +258,13 @@ struct MathBot2001::Impl
             questionComponents[0] = std::uniform_int_distribution<>(2, 10)(generator);
             questionComponents[1] = std::uniform_int_distribution<>(2, 10)(generator);
             questionComponents[2] = std::uniform_int_distribution<>(2, 97)(generator);
-            question = SystemAbstractions::sprintf(
+            question = StringExtensions::sprintf(
                 "What is %d * %d + %d?",
                 questionComponents[0],
                 questionComponents[1],
                 questionComponents[2]
             );
-            answer = SystemAbstractions::sprintf(
+            answer = StringExtensions::sprintf(
                 "%d",
                 questionComponents[0] * questionComponents[1] + questionComponents[2]
             );
@@ -378,8 +378,8 @@ struct MathBot2001::Impl
     ) {
         intmax_t tellAsNumber;
         if (
-            SystemAbstractions::ToInteger(tell, tellAsNumber)
-            != SystemAbstractions::ToIntegerResult::Success
+            StringExtensions::ToInteger(tell, tellAsNumber)
+            != StringExtensions::ToIntegerResult::Success
         ) {
             return;
         }
@@ -423,7 +423,7 @@ struct MathBot2001::Impl
     virtual void Join(
         Twitch::Messaging::MembershipInfo&& membershipInfo
     ) override {
-        if (membershipInfo.user == SystemAbstractions::ToLower(BOT_NICKNAME)) {
+        if (membershipInfo.user == StringExtensions::ToLower(BOT_NICKNAME)) {
             StartWorker();
         }
     }
@@ -431,7 +431,7 @@ struct MathBot2001::Impl
     virtual void Leave(
         Twitch::Messaging::MembershipInfo&& membershipInfo
     ) override {
-        if (membershipInfo.user == SystemAbstractions::ToLower(BOT_NICKNAME)) {
+        if (membershipInfo.user == StringExtensions::ToLower(BOT_NICKNAME)) {
             StopWorker();
         }
     }
@@ -477,7 +477,7 @@ void MathBot2001::Configure(
                 diagnosticMessageDelegate(
                     "MathBot2001",
                     SystemAbstractions::DiagnosticsSender::Levels::ERROR,
-                    SystemAbstractions::sprintf(
+                    StringExtensions::sprintf(
                         "unable to open root CA certificates file '%s'",
                         caCertsFile.GetPath().c_str()
                     )

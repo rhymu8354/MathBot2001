@@ -19,8 +19,9 @@ set_target_properties(${This} PROPERTIES
 )
 
 target_link_libraries(${This} PUBLIC
-SystemAbstractions
-Twitch
+    StringExtensions
+    SystemAbstractions
+    Twitch
     TwitchNetworkTransport
 )
 
