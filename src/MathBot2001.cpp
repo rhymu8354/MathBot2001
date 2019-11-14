@@ -473,7 +473,7 @@ void MathBot2001::Configure(
                 SystemAbstractions::File::GetExeParentDirectory()
                 + "/cert.pem"
             );
-            if (!caCertsFile.Open()) {
+            if (!caCertsFile.OpenReadOnly()) {
                 diagnosticMessageDelegate(
                     "MathBot2001",
                     SystemAbstractions::DiagnosticsSender::Levels::ERROR,

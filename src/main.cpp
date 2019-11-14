@@ -139,7 +139,7 @@ namespace {
             return false;
         }
         SystemAbstractions::File tokenFile(tokenFilePath);
-        if (!tokenFile.Open()) {
+        if (!tokenFile.OpenReadOnly()) {
             diagnosticMessageDelegate(
                 "MathBot2001",
                 SystemAbstractions::DiagnosticsSender::Levels::ERROR,
