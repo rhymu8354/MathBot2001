@@ -52,10 +52,14 @@ public:
      *
      * @param[in] channel
      *     This is the channel in which to participate in chat.
+     *
+     * @param[in] nickname
+     *     This is the nickname to use on Twitch.
      */
     void InitiateLogIn(
         const std::string& token,
-        const std::string& channel
+        const std::string& channel,
+        const std::string& nickname
     );
 
     /**

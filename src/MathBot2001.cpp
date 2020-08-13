@@ -32,11 +32,6 @@ namespace {
     constexpr unsigned int WORKER_POLLING_PERIOD_MILLISECONDS = 50;
 
     /**
-     * This is the nickname the bot should use.
-     */
-    const std::string BOT_NICKNAME = "MathBot2001";
-
-    /**
      * This represents one user who is interacting with the bot.
      */
     struct Contestant {
@@ -76,6 +71,11 @@ struct MathBot2001::Impl
      * This is the name of the channel to join in Twitch.
      */
     std::string channel;
+
+    /**
+     * This is the nickname to use on Twitch.
+     */
+    std::string nickname;
 
     /**
      * This is used to connect to Twitch chat and exchange messages
@@ -423,7 +423,7 @@ struct MathBot2001::Impl
     virtual void Join(
         Twitch::Messaging::MembershipInfo&& membershipInfo
     ) override {
-        if (membershipInfo.user == StringExtensions::ToLower(BOT_NICKNAME)) {
+        if (membershipInfo.user == StringExtensions::ToLower(nickname)) {
             StartWorker();
         }
     }
@@ -431,7 +431,7 @@ struct MathBot2001::Impl
     virtual void Leave(
         Twitch::Messaging::MembershipInfo&& membershipInfo
     ) override {
-        if (membershipInfo.user == StringExtensions::ToLower(BOT_NICKNAME)) {
+        if (membershipInfo.user == StringExtensions::ToLower(nickname)) {
             StopWorker();
         }
     }
@@ -513,10 +513,12 @@ void MathBot2001::Configure(
 
 void MathBot2001::InitiateLogIn(
     const std::string& token,
-    const std::string& channel
+    const std::string& channel,
+    const std::string& nickname
 ) {
     impl_->channel = channel;
-    impl_->tmi.LogIn(BOT_NICKNAME, token);
+    impl_->nickname = nickname;
+    impl_->tmi.LogIn(impl_->nickname, token);
 }
 
 void MathBot2001::InitiateLogOut() {

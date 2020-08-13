@@ -31,12 +31,13 @@ namespace {
         fprintf(
             stderr,
             (
-                "Usage: MathBot2001 TOKEN CHANNEL\n"
+                "Usage: MathBot2001 TOKEN CHANNEL [NICK]\n"
                 "\n"
                 "Connect to Twitch chat and listen for messages.\n"
                 "\n"
                 "  TOKEN   Path/name of file containing the OAuth token to use\n"
                 "  CHANNEL Name of the Twitch channel to join\n"
+                "  NICK    Nickname (username) to use (default: MathBot2001)\n"
             )
         );
     }
@@ -60,6 +61,11 @@ namespace {
          * This is the name of the channel to join in Twitch.
          */
         std::string channel;
+
+        /**
+         * This is the nickname to use on Twitch.
+         */
+        std::string nickname = "MathBot2001";
     };
 
     /**
@@ -103,6 +109,7 @@ namespace {
         enum class State {
             Token,
             Channel,
+            Nickname,
             Done,
         } state = State::Token;
         std::string tokenFilePath;
@@ -116,6 +123,11 @@ namespace {
 
                 case State::Channel: {
                     environment.channel = arg;
+                    state = State::Nickname;
+                } break;
+
+                case State::Nickname: {
+                    environment.nickname = arg;
                     state = State::Done;
                 } break;
 
@@ -197,7 +209,11 @@ int main(int argc, char* argv[]) {
     }
     const auto bot = std::make_shared< MathBot2001 >();
     bot->Configure(diagnosticsPublisher);
-    bot->InitiateLogIn(environment.token, environment.channel);
+    bot->InitiateLogIn(
+        environment.token,
+        environment.channel,
+        environment.nickname
+    );
     while (!shutDown) {
         if (bot->AwaitLogOut()) {
             break;
