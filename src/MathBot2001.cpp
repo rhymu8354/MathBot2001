@@ -191,6 +191,12 @@ struct MathBot2001::Impl
      */
     std::string winnerThisRound;
 
+    /**
+     * If there is a user who won the last round, this is the `id`
+     * of the message they sent containing the winning answer.
+     */
+    std::string winningMsgId;
+
     // Methods
 
     /**
@@ -252,6 +258,7 @@ struct MathBot2001::Impl
         const auto lastAnswer = answer;
         nicknamesOfParticipantsThisRound.clear();
         winnerThisRound.clear();
+        winningMsgId.clear();
         std::string question;
         do {
             std::vector< int > questionComponents(3);
@@ -348,10 +355,18 @@ struct MathBot2001::Impl
                     }
                 }
                 buffer << ".";
-                tmi.SendMessage(
-                    channel,
-                    buffer.str()
-                );
+                if (winningMsgId.empty()) {
+                    tmi.SendMessage(
+                        channel,
+                        buffer.str()
+                    );
+                } else {
+                    tmi.SendResponse(
+                        channel,
+                        buffer.str(),
+                        winningMsgId
+                    );
+                }
             }
         }
     }
@@ -368,13 +383,17 @@ struct MathBot2001::Impl
      * @param[in] tell
      *     This is the content of the user's tell.
      *
+     * @param[in] msgId
+     *     This is the `id` field of the user's tell.
+     *
      * @note
      *     If the last question was already answered correctly, any
      *     subsequent answers are ignored, until the next question is asked.
      */
     void IfMessageIsAnswerThenHandleIt(
         const std::string& userNickname,
-        const std::string& tell
+        const std::string& tell,
+        const std::string& msgId
     ) {
         intmax_t tellAsNumber;
         if (
@@ -394,6 +413,7 @@ struct MathBot2001::Impl
         if (tell == answer) {
             diagnosticsSender.SendDiagnosticInformationString(1, "Winner: " + userNickname);
             winnerThisRound = userNickname;
+            winningMsgId = msgId;
             roundComplete = true;
             ++userEntry.pointDelta;
         } else {
@@ -447,7 +467,8 @@ struct MathBot2001::Impl
         );
         IfMessageIsAnswerThenHandleIt(
             messageInfo.user,
-            messageInfo.messageContent
+            messageInfo.messageContent,
+            messageInfo.tags.id
         );
     }
 
